@@ -4,7 +4,7 @@ AI news intelligence and daily digest tool. Automatically collects, summarizes, 
 
 Built for staying on top of AI and agentic coding news without drowning in tabs.
 
-![Daily Digest — calendar-navigable feed with 45 items from RSS, arXiv, YouTube, and more](docs/screenshots/digest.png)
+![Daily Digest — calendar-navigable feed with 45 items from RSS, arXiv, YouTube, and more](docs/screenshots/digest.webp)
 
 ## What It Does
 
@@ -134,15 +134,15 @@ cd frontend && pnpm run build
 
 **Sources** — manage 46 tracked sources across RSS, YouTube, Twitter, arXiv, Reddit, GitHub, and more. Each shows health status, last fetch time, and item count.
 
-![Sources page](docs/screenshots/sources.png)
+![Sources page](docs/screenshots/sources.webp)
 
 **Settings** — configure pipeline schedule, YouTube search keywords, categories, and view pipeline run history.
 
-![Settings page](docs/screenshots/settings.png)
+![Settings page](docs/screenshots/settings.webp)
 
 **Weekly Review** — generate markdown reviews from starred items for team briefings.
 
-![Review page](docs/screenshots/review.png)
+![Review page](docs/screenshots/review.webp)
 
 ## License
 

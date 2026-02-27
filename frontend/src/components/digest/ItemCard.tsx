@@ -9,6 +9,7 @@ import {
   Youtube,
 } from 'lucide-react'
 import { useState } from 'react'
+import { updateItem } from '../../lib/api'
 import type { DigestItem } from '../../lib/types'
 
 const sourceTypeConfig: Record<
@@ -32,11 +33,27 @@ function formatTime(dateStr: string) {
   return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
 }
 
-export default function ItemCard({ item }: { item: DigestItem }) {
+interface ItemCardProps {
+  item: DigestItem
+  onUpdate?: () => void
+}
+
+export default function ItemCard({ item, onUpdate }: ItemCardProps) {
   const [starred, setStarred] = useState(item.is_starred)
   const config = sourceTypeConfig[item.source_type] ?? sourceTypeConfig.rss
   const Icon = config.icon
   const isUnread = !item.is_read
+
+  const toggleStar = async () => {
+    const newVal = !starred
+    setStarred(newVal)
+    try {
+      await updateItem(item.id, { is_starred: newVal })
+      onUpdate?.()
+    } catch {
+      setStarred(!newVal) // revert on error
+    }
+  }
 
   return (
     <div
@@ -68,7 +85,9 @@ export default function ItemCard({ item }: { item: DigestItem }) {
           <span className="text-[11px] text-[#888888] font-heading tracking-wide">
             {item.source_name}
           </span>
-          <span className="text-[11px] text-[#888888]">{formatTime(item.published_at)}</span>
+          <span className="text-[11px] text-[#888888]">
+            {item.published_at ? formatTime(item.published_at) : ''}
+          </span>
         </div>
 
         <a
@@ -110,7 +129,7 @@ export default function ItemCard({ item }: { item: DigestItem }) {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setStarred(!starred)}
+              onClick={toggleStar}
               className="flex items-center gap-1 text-[11px]"
             >
               <Star

@@ -1,31 +1,107 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Plus, X, Zap } from 'lucide-react'
+import { Loader2, Plus, X, Zap } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import Topbar from '../components/layout/Topbar'
-import { categories, pipelineRuns } from '../lib/mock-data'
+import {
+  getCategories,
+  getPipelineRuns,
+  getPipelineStatus,
+  getSettings,
+  triggerPipeline,
+  updateSettings,
+  type AppSettings,
+  type PipelineStatus,
+} from '../lib/api'
+import type { Category, PipelineRun } from '../lib/types'
 
 export const Route = createFileRoute('/settings/')({
   component: SettingsPage,
 })
 
-const defaultKeywords = [
-  'agentic coding',
-  'AI coding agent',
-  'Claude Code',
-  'Cursor AI',
-  'AI developer tools',
-  'LLM coding',
-  'AI pair programming',
-  'coding with AI 2026',
-  'AI software engineering',
-  'vibe coding',
-]
-
 function SettingsPage() {
+  const [settings, setSettings] = useState<AppSettings | null>(null)
+  const [pipelineStatus, setPipelineStatus] = useState<PipelineStatus | null>(null)
+  const [pipelineRuns, setPipelineRuns] = useState<PipelineRun[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
+  const [loading, setLoading] = useState(true)
+  const [runningPipeline, setRunningPipeline] = useState(false)
+  const [newKeyword, setNewKeyword] = useState('')
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  const loadData = async () => {
+    try {
+      const [settingsRes, statusRes, runsRes, catsRes] = await Promise.all([
+        getSettings(),
+        getPipelineStatus(),
+        getPipelineRuns(),
+        getCategories(),
+      ])
+      setSettings(settingsRes)
+      setPipelineStatus(statusRes)
+      setPipelineRuns(runsRes)
+      setCategories(catsRes)
+    } catch (e) {
+      console.error('Failed to load settings:', e)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleRunPipeline = async () => {
+    setRunningPipeline(true)
+    try {
+      await triggerPipeline()
+      // Poll status for a bit
+      setTimeout(loadData, 2000)
+    } catch (e) {
+      console.error('Failed to trigger pipeline:', e)
+    } finally {
+      setRunningPipeline(false)
+    }
+  }
+
+  const handleRemoveKeyword = async (keyword: string) => {
+    if (!settings) return
+    const updated = settings.youtube_keywords.filter((k) => k !== keyword)
+    try {
+      const res = await updateSettings({ youtube_keywords: updated })
+      setSettings(res)
+    } catch (e) {
+      console.error('Failed to update keywords:', e)
+    }
+  }
+
+  const handleAddKeyword = async () => {
+    if (!settings || !newKeyword.trim()) return
+    const updated = [...settings.youtube_keywords, newKeyword.trim()]
+    try {
+      const res = await updateSettings({ youtube_keywords: updated })
+      setSettings(res)
+      setNewKeyword('')
+    } catch (e) {
+      console.error('Failed to add keyword:', e)
+    }
+  }
+
   const statusColors: Record<string, { bg: string; text: string; label: string }> = {
     completed: { bg: '#4A7C59', text: '#fff', label: 'Completed' },
     warning: { bg: '#D4A017', text: '#fff', label: 'Warning' },
     failed: { bg: '#B54A4A', text: '#fff', label: 'Failed' },
     running: { bg: '#3B82F6', text: '#fff', label: 'Running' },
+  }
+
+  if (loading) {
+    return (
+      <div className="flex flex-col h-full">
+        <Topbar title="Settings" />
+        <div className="flex items-center justify-center flex-1">
+          <Loader2 className="w-6 h-6 animate-spin text-[#888888]" />
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -40,8 +116,16 @@ function SettingsPage() {
               <span className="font-heading text-[11px] font-semibold tracking-[1px] text-[#1a1a1a]">
                 PIPELINE
               </span>
-              <button className="flex items-center gap-2 bg-[#C05A3C] px-3.5 py-1.5 rounded-sm">
-                <Zap className="w-3.5 h-3.5 text-[#F5F3EF]" />
+              <button
+                onClick={handleRunPipeline}
+                disabled={runningPipeline}
+                className="flex items-center gap-2 bg-[#C05A3C] px-3.5 py-1.5 rounded-sm disabled:opacity-50"
+              >
+                {runningPipeline ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#F5F3EF]" />
+                ) : (
+                  <Zap className="w-3.5 h-3.5 text-[#F5F3EF]" />
+                )}
                 <span className="font-heading text-[11px] font-semibold tracking-[1px] text-[#F5F3EF]">
                   RUN NOW
                 </span>
@@ -52,28 +136,27 @@ function SettingsPage() {
               <span className="font-heading text-[11px] font-semibold tracking-[1px] text-[#888888]">
                 SCHEDULE
               </span>
-              <div className="flex items-center gap-2">
-                <div className="bg-[#E8E4DC] px-3 py-1.5 rounded-sm text-sm text-[#1a1a1a]">
-                  6:00 AM
-                </div>
-                <span className="text-[#888888] text-xs">and</span>
-                <div className="bg-[#E8E4DC] px-3 py-1.5 rounded-sm text-sm text-[#1a1a1a]">
-                  6:00 PM
-                </div>
+              <div className="bg-[#E8E4DC] px-3 py-1.5 rounded-sm text-sm text-[#1a1a1a]">
+                {settings?.pipeline_cron ?? 'Not set'}
               </div>
             </div>
 
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-[#4A7C59]" />
-                <span className="text-sm text-[#555555]">Idle</span>
+                <div
+                  className="w-2 h-2 rounded-full"
+                  style={{ backgroundColor: pipelineStatus?.is_running ? '#3B82F6' : '#4A7C59' }}
+                />
+                <span className="text-sm text-[#555555]">
+                  {pipelineStatus?.is_running ? 'Running' : 'Idle'}
+                </span>
               </div>
-              <span className="text-[12px] text-[#888888]">
-                Last run: Feb 26, 2026 at 6:00 AM
-              </span>
-              <span className="text-[12px] text-[#888888]">
-                Next run: Feb 26, 2026 at 6:00 PM
-              </span>
+              {pipelineStatus?.last_run_at && (
+                <span className="text-[12px] text-[#888888]">
+                  Last run: {new Date(pipelineStatus.last_run_at).toLocaleString()}
+                  {pipelineStatus.last_run_status && ` (${pipelineStatus.last_run_status})`}
+                </span>
+              )}
             </div>
           </div>
 
@@ -84,13 +167,15 @@ function SettingsPage() {
             </span>
 
             <div className="flex flex-wrap gap-2">
-              {defaultKeywords.map((keyword) => (
+              {(settings?.youtube_keywords ?? []).map((keyword) => (
                 <div
                   key={keyword}
                   className="flex items-center gap-1.5 bg-[#E8E4DC] px-2.5 py-1 rounded-sm"
                 >
                   <span className="text-[12px] text-[#555555]">{keyword}</span>
-                  <X className="w-3 h-3 text-[#888888] cursor-pointer" />
+                  <button onClick={() => handleRemoveKeyword(keyword)}>
+                    <X className="w-3 h-3 text-[#888888] cursor-pointer" />
+                  </button>
                 </div>
               ))}
             </div>
@@ -98,10 +183,16 @@ function SettingsPage() {
             <div className="flex items-center gap-2">
               <input
                 type="text"
+                value={newKeyword}
+                onChange={(e) => setNewKeyword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddKeyword()}
                 placeholder="Add a keyword..."
                 className="flex-1 bg-[#E8E4DC] px-3 py-1.5 rounded-sm text-sm text-[#1a1a1a] outline-none placeholder:text-[#888888]"
               />
-              <button className="flex items-center gap-1.5 bg-[#1a1a1a] px-3 py-1.5 rounded-sm">
+              <button
+                onClick={handleAddKeyword}
+                className="flex items-center gap-1.5 bg-[#1a1a1a] px-3 py-1.5 rounded-sm"
+              >
                 <Plus className="w-3.5 h-3.5 text-[#F5F3EF]" />
                 <span className="font-heading text-[11px] font-semibold tracking-[1px] text-[#F5F3EF]">
                   ADD
@@ -143,7 +234,6 @@ function SettingsPage() {
               PIPELINE HISTORY
             </span>
 
-            {/* Header */}
             <div className="flex items-center gap-4 border-b border-[#D1CCC4] pb-2">
               <span className="flex-1 font-heading text-[11px] font-semibold tracking-[1px] text-[#888888]">
                 TIMESTAMP
@@ -162,39 +252,45 @@ function SettingsPage() {
               </span>
             </div>
 
-            {pipelineRuns.map((run) => {
-              const status = statusColors[run.status] ?? statusColors.completed
-              return (
-                <div
-                  key={run.id}
-                  className="flex items-center gap-4 py-2 border-b border-[#D1CCC4] last:border-b-0"
-                >
-                  <span className="flex-1 text-sm text-[#555555]">
-                    {new Date(run.started_at).toLocaleString()}
-                  </span>
-                  <div className="w-24 flex items-center gap-1.5">
-                    <div
-                      className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: status.bg }}
-                    />
-                    <span className="text-[12px] text-[#555555]">{status.label}</span>
-                  </div>
-                  <span className="w-16 text-sm text-[#555555] text-right">
-                    {run.items_fetched}
-                  </span>
-                  <span className="w-16 text-sm text-[#555555] text-right">
-                    {run.items_new}
-                  </span>
-                  <span
-                    className={`w-16 text-sm text-right ${
-                      run.errors > 0 ? 'text-[#B54A4A] font-medium' : 'text-[#555555]'
-                    }`}
+            {pipelineRuns.length > 0 ? (
+              pipelineRuns.map((run) => {
+                const status = statusColors[run.status] ?? statusColors.completed
+                return (
+                  <div
+                    key={run.id}
+                    className="flex items-center gap-4 py-2 border-b border-[#D1CCC4] last:border-b-0"
                   >
-                    {run.errors}
-                  </span>
-                </div>
-              )
-            })}
+                    <span className="flex-1 text-sm text-[#555555]">
+                      {new Date(run.started_at).toLocaleString()}
+                    </span>
+                    <div className="w-24 flex items-center gap-1.5">
+                      <div
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: status.bg }}
+                      />
+                      <span className="text-[12px] text-[#555555]">{status.label}</span>
+                    </div>
+                    <span className="w-16 text-sm text-[#555555] text-right">
+                      {run.items_fetched}
+                    </span>
+                    <span className="w-16 text-sm text-[#555555] text-right">
+                      {run.items_new}
+                    </span>
+                    <span
+                      className={`w-16 text-sm text-right ${
+                        run.errors > 0 ? 'text-[#B54A4A] font-medium' : 'text-[#555555]'
+                      }`}
+                    >
+                      {run.errors}
+                    </span>
+                  </div>
+                )
+              })
+            ) : (
+              <div className="text-sm text-[#888888] py-4">
+                No pipeline runs yet. Click "Run Now" to fetch your first batch.
+              </div>
+            )}
           </div>
         </div>
       </div>

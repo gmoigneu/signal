@@ -3,11 +3,14 @@ import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
+  Loader2,
   Play,
 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import ItemCard from '../components/digest/ItemCard'
 import Topbar from '../components/layout/Topbar'
-import { digestItems, getSourceHealth, sources } from '../lib/mock-data'
+import { getItems, getSource, getSourceHealth, type PaginatedItems } from '../lib/api'
+import type { Source } from '../lib/types'
 
 export const Route = createFileRoute('/sources/$sourceId')({
   component: SourceDetailPage,
@@ -15,9 +18,43 @@ export const Route = createFileRoute('/sources/$sourceId')({
 
 function SourceDetailPage() {
   const { sourceId } = Route.useParams()
-  const source = sources.find((s) => s.id === sourceId) ?? sources[0]
+  const [source, setSource] = useState<Source | null>(null)
+  const [itemsData, setItemsData] = useState<PaginatedItems | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+
+  const loadData = async () => {
+    setLoading(true)
+    try {
+      const [src, items] = await Promise.all([
+        getSource(sourceId),
+        getItems({ source_id: sourceId, page }),
+      ])
+      setSource(src)
+      setItemsData(items)
+    } catch (e) {
+      console.error('Failed to load source detail:', e)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [sourceId, page])
+
+  if (loading || !source) {
+    return (
+      <div className="flex flex-col h-full">
+        <Topbar title="Source" />
+        <div className="flex items-center justify-center flex-1">
+          <Loader2 className="w-6 h-6 animate-spin text-[#888888]" />
+        </div>
+      </div>
+    )
+  }
+
   const health = getSourceHealth(source)
-  const sourceItems = digestItems.filter((i) => i.source_id === source.id)
 
   const healthColors = {
     healthy: { bg: '#4A7C59', text: 'Healthy' },
@@ -88,9 +125,9 @@ function SourceDetailPage() {
             </div>
 
             <div className="flex items-center gap-2 text-[12px] text-[#888888]">
-              <span className="font-heading tracking-wide">FEED URL:</span>
+              <span className="font-heading tracking-wide">CONFIG:</span>
               <span className="text-[#555555]">
-                {String(source.config.feed_url ?? source.config.channel_id ?? source.config.subreddit ?? 'N/A')}
+                {String(source.config.feed_url ?? source.config.channel_handle ?? source.config.channel_id ?? source.config.subreddit ?? source.config.handle ?? 'N/A')}
               </span>
             </div>
 
@@ -138,8 +175,8 @@ function SourceDetailPage() {
               ITEMS FROM THIS SOURCE
             </span>
             <div className="flex flex-col border-t border-[#D1CCC4]">
-              {sourceItems.length > 0 ? (
-                sourceItems.map((item) => <ItemCard key={item.id} item={item} />)
+              {itemsData && itemsData.items.length > 0 ? (
+                itemsData.items.map((item) => <ItemCard key={item.id} item={item} onUpdate={loadData} />)
               ) : (
                 <div className="flex items-center justify-center py-12 text-[#888888] text-sm">
                   No items from this source yet.
@@ -149,30 +186,27 @@ function SourceDetailPage() {
           </div>
 
           {/* Pagination */}
-          <div className="flex items-center justify-center gap-2 py-4">
-            <button className="flex items-center justify-center w-8 h-8 bg-[#E8E4DC] rounded-sm">
-              <ChevronLeft className="w-4 h-4 text-[#555555]" />
-            </button>
-            {[1, 2, 3].map((page) => (
+          {itemsData && itemsData.total_pages > 1 && (
+            <div className="flex items-center justify-center gap-2 py-4">
               <button
-                key={page}
-                className={`flex items-center justify-center w-8 h-8 rounded-sm text-sm ${
-                  page === 1
-                    ? 'bg-[#1a1a1a] text-[#F5F3EF]'
-                    : 'bg-[#E8E4DC] text-[#555555]'
-                }`}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="flex items-center justify-center w-8 h-8 bg-[#E8E4DC] rounded-sm disabled:opacity-50"
               >
-                {page}
+                <ChevronLeft className="w-4 h-4 text-[#555555]" />
               </button>
-            ))}
-            <span className="text-[#888888] text-sm">...</span>
-            <button className="flex items-center justify-center w-8 h-8 bg-[#E8E4DC] rounded-sm text-sm text-[#555555]">
-              24
-            </button>
-            <button className="flex items-center justify-center w-8 h-8 bg-[#E8E4DC] rounded-sm">
-              <ChevronRight className="w-4 h-4 text-[#555555]" />
-            </button>
-          </div>
+              <span className="text-sm text-[#555555]">
+                Page {page} of {itemsData.total_pages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(itemsData.total_pages, p + 1))}
+                disabled={page >= itemsData.total_pages}
+                className="flex items-center justify-center w-8 h-8 bg-[#E8E4DC] rounded-sm disabled:opacity-50"
+              >
+                <ChevronRight className="w-4 h-4 text-[#555555]" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -8,6 +8,8 @@ import {
   SquareCheck,
   Zap,
 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { getPipelineStatus, type PipelineStatus } from '../../lib/api'
 
 const navItems = [
   { to: '/', icon: Newspaper, label: 'DIGEST' },
@@ -17,9 +19,27 @@ const navItems = [
   { to: '/settings', icon: Settings, label: 'SETTINGS' },
 ] as const
 
+function formatTimeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const minutes = Math.floor(diff / 60000)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  return `${Math.floor(hours / 24)}d ago`
+}
+
 export default function Sidebar() {
   const routerState = useRouterState()
   const currentPath = routerState.location.pathname
+  const [status, setStatus] = useState<PipelineStatus | null>(null)
+
+  useEffect(() => {
+    getPipelineStatus().then(setStatus).catch(() => {})
+    const interval = setInterval(() => {
+      getPipelineStatus().then(setStatus).catch(() => {})
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
   function isActive(to: string) {
     if (to === '/') return currentPath === '/' || currentPath.startsWith('/digest')
@@ -69,9 +89,22 @@ export default function Sidebar() {
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-[#4A7C59]" />
+          <div
+            className="w-2 h-2 rounded-full"
+            style={{
+              backgroundColor: status?.is_running
+                ? '#3B82F6'
+                : status?.last_run_status === 'failed'
+                  ? '#B54A4A'
+                  : '#4A7C59',
+            }}
+          />
           <span className="font-heading text-[11px] font-medium text-[#888888]">
-            Last run: 2h ago
+            {status?.is_running
+              ? 'Running...'
+              : status?.last_run_at
+                ? `Last run: ${formatTimeAgo(status.last_run_at)}`
+                : 'Never run'}
           </span>
         </div>
         <button className="flex items-center justify-center w-5 h-5">

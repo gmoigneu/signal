@@ -8,7 +8,17 @@ import type {
 	WeeklyReview,
 } from "./types";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+function getApiBase(): string {
+	if (typeof process !== "undefined" && process.env?.VITE_API_URL) {
+		return process.env.VITE_API_URL;
+	}
+	if (typeof window === "undefined") {
+		return import.meta.env.VITE_API_URL || "http://localhost:8000";
+	}
+	return "";
+}
+
+const API_BASE = getApiBase();
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
 	const res = await fetch(`${API_BASE}${path}`, {

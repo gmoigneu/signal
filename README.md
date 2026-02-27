@@ -47,7 +47,7 @@ Open `http://localhost:3000`. Add your sources via the **Sources** page, then cl
 | Database | PostgreSQL 17 |
 | Frontend | React 19, TanStack Start, Vite 7, Tailwind CSS 4 |
 | LLM | OpenAI GPT-4.1-nano |
-| Infra | Docker Compose |
+| Infra | Docker, GitHub Actions (GHCR), Portainer |
 
 ## Project Structure
 
@@ -67,9 +67,13 @@ signal/
 │       ├── components/           # Shared UI components
 │       └── lib/                  # API client, types, utils
 ├── docker/
+│   ├── backend/Dockerfile        # Multi-stage Python build
+│   ├── frontend/Dockerfile       # Multi-stage Node build
 │   └── postgres/init.sql         # Schema (no seeded sources — add your own)
-├── docs/                         # Architecture, API, setup, pipeline, sources docs
-└── docker-compose.yml
+├── .github/workflows/docker.yml  # CI/CD: build + push to GHCR
+├── docker-compose.yml            # Local dev (Postgres only)
+├── docker-stack.yml              # Production (Portainer)
+└── docs/                         # Architecture, API, setup, pipeline, sources docs
 ```
 
 ## Source Types
@@ -116,6 +120,78 @@ See [docs/api.md](docs/api.md) for the full reference.
 - [API Reference](docs/api.md)
 - [Pipeline](docs/pipeline.md)
 - [Source Types](docs/sources.md)
+
+## Production Deployment (Portainer)
+
+Signal ships with a `docker-stack.yml` ready for Portainer. Images are built automatically via GitHub Actions and pushed to GHCR on every push to `main`.
+
+### 1. Prerequisites
+
+- A server with Docker and Portainer installed
+- A reverse proxy (Caddy, Nginx, Traefik) pointing your domain to the frontend and backend ports
+- A GitHub account with access to the GHCR packages (repo must be public, or configure Portainer with a GHCR registry credential)
+
+### 2. Initialize the database
+
+On first deploy, the database is empty. Run the init script against the postgres container:
+
+```bash
+docker exec -i <postgres-container> psql -U signal -d signal < docker/postgres/init.sql
+```
+
+Or pipe it remotely:
+
+```bash
+cat docker/postgres/init.sql | ssh your-server "docker exec -i <postgres-container> psql -U signal -d signal"
+```
+
+### 3. Deploy the stack
+
+In Portainer, go to **Stacks > Add stack** and either:
+
+- **Upload** the `docker-stack.yml` file, or
+- **Paste** its contents into the web editor
+
+Then add the following **environment variables**:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `POSTGRES_PASSWORD` | Yes | Database password |
+| `OPENAI_API_KEY` | Yes | For LLM summarization |
+| `GOOGLE_API_KEY` | No | YouTube Data API v3 key (no quotes!) |
+| `GITHUB_TOKEN` | No | Higher GitHub API rate limits |
+| `VITE_API_URL` | No | Frontend SSR API URL (defaults to `https://signal.nls.io`) |
+| `ALLOWED_ORIGINS` | No | CORS origins (defaults to `https://signal.nls.io`) |
+| `PIPELINE_CRON` | No | Cron schedule (defaults to `0 6,18 * * *`) |
+| `OPENAI_MODEL` | No | LLM model (defaults to `gpt-4.1-nano`) |
+
+> **Important**: Do not wrap env values in quotes. Docker passes them as literal characters, so `"your-key"` becomes `%22your-key%22` in API calls.
+
+### 4. Reverse proxy
+
+The stack exposes two ports on the host:
+
+| Port | Service |
+|------|---------|
+| `26001` | Frontend (SSR) |
+| `26002` | Backend API |
+
+Point your reverse proxy to these. Example Caddyfile:
+
+```
+signal.example.com {
+    handle /api/* {
+        reverse_proxy localhost:26002
+    }
+    handle {
+        reverse_proxy localhost:26001
+    }
+}
+```
+
+### 5. Update
+
+Push to `main` to trigger a new image build. In Portainer, click **Recreate** on the stack with **Pull latest images** enabled.
 
 ## Development
 

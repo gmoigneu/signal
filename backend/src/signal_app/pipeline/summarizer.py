@@ -4,29 +4,39 @@ import logging
 from openai import AsyncOpenAI
 
 from signal_app.config import get_settings
+from signal_app.db import get_pool
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are a news summarizer for an AI/tech intelligence tool called Signal.
+SYSTEM_PROMPT_TEMPLATE = """You are a news summarizer for an intelligence tool called Signal.
 
 For each item, produce:
-1. A concise 2-3 sentence summary focused on why this matters for AI practitioners and developers.
+1. A concise 2-3 sentence summary focused on why this matters.
 2. Assign 1-3 categories from this list (use slugs):
-   - models-research: Papers, model releases, benchmarks, training techniques
-   - coding-agents: AI coding tools, code generation, IDE agents, developer workflows
-   - web-dev: Web development frameworks, frontend/backend tools, deployment
-   - industry: Company news, funding, acquisitions, policy, regulations
-   - tools: Developer tools, libraries, CLIs, productivity software
-   - open-source: Open source releases, community projects, contributions
-   - tutorials: How-tos, guides, educational content, learning resources
-   - opinion: Think pieces, analysis, commentary, predictions
+{categories}
+
+If no categories are configured, skip the categories field.
 
 Respond with valid JSON only. Format:
-{
+{{
   "results": [
-    {"index": 0, "summary": "...", "categories": ["slug1"], "confidence": [0.95]}
+    {{"index": 0, "summary": "...", "categories": ["slug1"], "confidence": [0.95]}}
   ]
-}"""
+}}"""
+
+
+async def _build_system_prompt() -> str:
+    """Build the system prompt with categories from the database."""
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT name, slug FROM categories ORDER BY sort_order")
+
+    if rows:
+        cat_lines = "\n".join(f"   - {row['slug']}: {row['name']}" for row in rows)
+    else:
+        cat_lines = "   (no categories configured)"
+
+    return SYSTEM_PROMPT_TEMPLATE.format(categories=cat_lines)
 
 
 async def summarize_items(
@@ -46,6 +56,7 @@ async def summarize_items(
         return []
 
     client = AsyncOpenAI(api_key=settings.openai_api_key)
+    system_prompt = await _build_system_prompt()
 
     # Build the user message
     user_parts = []
@@ -58,7 +69,7 @@ async def summarize_items(
         response = await client.chat.completions.create(
             model=settings.openai_model,
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message},
             ],
             temperature=0.3,

@@ -122,8 +122,7 @@ async def run_pipeline(trigger: str = "manual") -> str:
                 """SELECT id, title, content_raw
                    FROM items
                    WHERE summarized_at IS NULL
-                   ORDER BY created_at DESC
-                   LIMIT 100"""
+                   ORDER BY created_at DESC"""
             )
 
         # Process in batches

@@ -227,6 +227,25 @@ async def update_item(item_id: str, data: ItemUpdate) -> ItemOut:
     return await get_item(item_id)
 
 
+@router.post("/mark-all-read")
+async def mark_all_read(
+    date: str | None = Query(None, description="YYYY-MM-DD — defaults to server today"),
+) -> dict[str, int]:
+    """Mark all items for a given date as read."""
+    pool = get_pool()
+    from datetime import date as date_type
+
+    target_date = date_type.fromisoformat(date) if date else date_type.today()
+    async with pool.acquire() as conn:
+        result = await conn.execute(
+            "UPDATE items SET is_read = true, updated_at = now()"
+            " WHERE published_at::date = $1 AND is_read = false",
+            target_date,
+        )
+        count = int(result.split()[-1])
+    return {"updated": count}
+
+
 @router.post("/manual", response_model=ItemOut)
 async def add_manual_item(data: ManualItemCreate) -> ItemOut:
     pool = get_pool()

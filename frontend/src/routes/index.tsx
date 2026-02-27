@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
 	Calendar,
+	CheckCheck,
 	ChevronDown,
 	ChevronLeft,
 	ChevronRight,
@@ -19,6 +20,7 @@ import {
 	getItems,
 	getPipelineStatus,
 	type ItemStats,
+	markAllRead,
 	type PaginatedItems,
 	triggerPipeline,
 } from "../lib/api";
@@ -137,6 +139,15 @@ function DigestPage() {
 	useEffect(() => {
 		loadData();
 	}, [loadData]);
+
+	const handleMarkAllRead = async () => {
+		try {
+			await markAllRead(toISODate(currentDate));
+			await loadData();
+		} catch (e) {
+			console.error("Failed to mark all as read:", e);
+		}
+	};
 
 	const prevDay = () => {
 		setCurrentDate((d) => new Date(d.getTime() - 86400000));
@@ -291,6 +302,14 @@ function DigestPage() {
 								}`}
 							>
 								Unread
+							</button>
+							<button
+								type="button"
+								onClick={handleMarkAllRead}
+								className="flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-[12px] font-heading bg-[#E8E4DC] text-[#555555] hover:bg-[#D1CCC4] transition-colors"
+							>
+								<CheckCheck className="w-3 h-3" />
+								Mark all read
 							</button>
 						</div>
 					</div>

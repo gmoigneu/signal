@@ -82,6 +82,12 @@ export async function updateItem(
 	});
 }
 
+export async function markAllRead(date: string): Promise<{ updated: number }> {
+	return fetchJson(`/api/items/mark-all-read?date=${date}`, {
+		method: "POST",
+	});
+}
+
 export async function addManualItem(data: {
 	title: string;
 	url: string;

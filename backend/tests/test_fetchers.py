@@ -1,5 +1,7 @@
 """Tests for fetcher implementations using respx to mock HTTP calls."""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import respx
 from httpx import Response
 
@@ -77,24 +79,83 @@ class TestRSSFetcher:
 
 class TestHackerNewsFetcher:
     @respx.mock
-    async def test_fetch_hn(self, hn_api_response: dict):
-        respx.get("https://hn.algolia.com/api/v1/search").mock(
-            return_value=Response(200, json=hn_api_response)
+    async def test_fetch_hn_with_llm_filter(
+        self, hn_top_stories: list[int], hn_story_details: dict[int, dict]
+    ):
+        """Test fetching HN front page stories filtered by LLM."""
+        respx.get("https://hacker-news.firebaseio.com/v0/topstories.json").mock(
+            return_value=Response(200, json=hn_top_stories)
         )
+        for sid, detail in hn_story_details.items():
+            respx.get(f"https://hacker-news.firebaseio.com/v0/item/{sid}.json").mock(
+                return_value=Response(200, json=detail)
+            )
 
-        fetcher = HackerNewsFetcher("source-1", {"keywords": ["AI", "LLM"], "min_score": 50})
-        items = await fetcher.fetch()
+        # Mock DB pool returning categories
+        mock_conn = AsyncMock()
+        mock_conn.fetch = AsyncMock(
+            return_value=[{"name": "AI & ML", "slug": "ai-ml"}]
+        )
+        mock_pool = MagicMock()
+        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        # Mock OpenAI response: only stories 0 and 1 are relevant
+        mock_choice = MagicMock()
+        mock_choice.message.content = (
+            '{"relevant": [{"index": 0, "categories": ["ai-ml"]},'
+            ' {"index": 1, "categories": ["ai-ml"]}]}'
+        )
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+        mock_client = AsyncMock()
+        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+        with (
+            patch("signal_app.fetchers.hackernews.get_pool", return_value=mock_pool),
+            patch("signal_app.fetchers.hackernews.get_settings") as mock_settings,
+            patch("signal_app.fetchers.hackernews.AsyncOpenAI", return_value=mock_client),
+        ):
+            mock_settings.return_value.openai_api_key = "test-key"
+            mock_settings.return_value.openai_model = "gpt-4.1-nano"
+
+            fetcher = HackerNewsFetcher("source-1", {})
+            items = await fetcher.fetch()
 
         assert len(items) == 2
         assert items[0].title == "Show HN: AI Coding Agent"
         assert items[0].external_id == "12345"
         assert items[0].extra["score"] == 150
         assert items[0].extra["num_comments"] == 42
+        assert items[0].extra["hn_url"] == "https://news.ycombinator.com/item?id=12345"
 
-    async def test_fetch_no_keywords(self):
-        fetcher = HackerNewsFetcher("source-1", {"keywords": []})
-        items = await fetcher.fetch()
-        assert items == []
+    @respx.mock
+    async def test_fetch_hn_no_categories_returns_all(
+        self, hn_top_stories: list[int], hn_story_details: dict[int, dict]
+    ):
+        """When no categories are configured, all stories are returned."""
+        respx.get("https://hacker-news.firebaseio.com/v0/topstories.json").mock(
+            return_value=Response(200, json=hn_top_stories)
+        )
+        for sid, detail in hn_story_details.items():
+            respx.get(f"https://hacker-news.firebaseio.com/v0/item/{sid}.json").mock(
+                return_value=Response(200, json=detail)
+            )
+
+        # Mock DB pool returning no categories
+        mock_conn = AsyncMock()
+        mock_conn.fetch = AsyncMock(return_value=[])
+        mock_pool = MagicMock()
+        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("signal_app.fetchers.hackernews.get_pool", return_value=mock_pool):
+            fetcher = HackerNewsFetcher("source-1", {})
+            items = await fetcher.fetch()
+
+        assert len(items) == 3
+        assert items[0].title == "Show HN: AI Coding Agent"
+        assert items[2].title == "New React Framework Launched"
 
 
 class TestNonLatinFilter:

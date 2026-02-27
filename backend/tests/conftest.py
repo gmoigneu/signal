@@ -32,30 +32,43 @@ def rss_feed_xml() -> str:
 
 
 @pytest.fixture
-def hn_api_response() -> dict:
-    """Sample Hacker News Algolia API response."""
+def hn_top_stories() -> list[int]:
+    """Sample HN top story IDs."""
+    return [12345, 12346, 12347]
+
+
+@pytest.fixture
+def hn_story_details() -> dict[int, dict]:
+    """Sample HN story details keyed by ID."""
     return {
-        "hits": [
-            {
-                "objectID": "12345",
-                "title": "Show HN: AI Coding Agent",
-                "url": "https://example.com/ai-agent",
-                "author": "testuser",
-                "points": 150,
-                "num_comments": 42,
-                "created_at": "2026-02-26T10:00:00.000Z",
-                "story_text": None,
-            },
-            {
-                "objectID": "12346",
-                "title": "Claude Code v2 Released",
-                "url": "https://example.com/claude-code",
-                "author": "another_user",
-                "points": 200,
-                "num_comments": 87,
-                "created_at": "2026-02-26T08:00:00.000Z",
-                "story_text": "Major update to Claude Code.",
-            },
-        ],
-        "nbHits": 2,
+        12345: {
+            "id": 12345,
+            "title": "Show HN: AI Coding Agent",
+            "url": "https://example.com/ai-agent",
+            "by": "testuser",
+            "score": 150,
+            "descendants": 42,
+            "time": 1740564000,
+            "type": "story",
+        },
+        12346: {
+            "id": 12346,
+            "title": "Claude Code v2 Released",
+            "url": "https://example.com/claude-code",
+            "by": "another_user",
+            "score": 200,
+            "descendants": 87,
+            "time": 1740556800,
+            "type": "story",
+        },
+        12347: {
+            "id": 12347,
+            "title": "New React Framework Launched",
+            "url": "https://example.com/react-fw",
+            "by": "dev_user",
+            "score": 80,
+            "descendants": 15,
+            "time": 1740550000,
+            "type": "story",
+        },
     }

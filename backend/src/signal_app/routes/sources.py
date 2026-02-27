@@ -60,7 +60,7 @@ async def create_source(data: SourceCreate) -> SourceOut:
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """INSERT INTO sources (name, source_type, config, enabled, fetch_interval)
-               VALUES ($1, $2, $3::jsonb, $4, $5::interval)
+               VALUES ($1, $2, $3::jsonb, $4, $5::text::interval)
                RETURNING *""",
             data.name,
             data.source_type,
@@ -109,7 +109,7 @@ async def update_source(source_id: str, data: SourceUpdate) -> SourceOut:
         params.append(data.enabled)
         idx += 1
     if data.fetch_interval is not None:
-        sets.append(f"fetch_interval = ${idx}::interval")
+        sets.append(f"fetch_interval = ${idx}::text::interval")
         params.append(data.fetch_interval)
         idx += 1
 

@@ -4,6 +4,8 @@ AI news intelligence and daily digest tool. Automatically collects, summarizes, 
 
 Built for staying on top of AI and agentic coding news without drowning in tabs.
 
+![Daily Digest — calendar-navigable feed with 45 items from RSS, arXiv, YouTube, and more](docs/screenshots/digest.png)
+
 ## What It Does
 
 - **Fetches** from RSS, Hacker News, Reddit, arXiv, GitHub Releases, YouTube, Bluesky, and Twitter (Nitter)
@@ -127,6 +129,20 @@ cd backend && uv run ruff check src/
 # Frontend build
 cd frontend && pnpm run build
 ```
+
+## Screenshots
+
+**Sources** — manage 46 tracked sources across RSS, YouTube, Twitter, arXiv, Reddit, GitHub, and more. Each shows health status, last fetch time, and item count.
+
+![Sources page](docs/screenshots/sources.png)
+
+**Settings** — configure pipeline schedule, YouTube search keywords, categories, and view pipeline run history.
+
+![Settings page](docs/screenshots/settings.png)
+
+**Weekly Review** — generate markdown reviews from starred items for team briefings.
+
+![Review page](docs/screenshots/review.png)
 
 ## License
 

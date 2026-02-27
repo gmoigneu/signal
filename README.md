@@ -1,20 +1,20 @@
 # Signal
 
-AI news intelligence and daily digest tool. Automatically collects, summarizes, and presents content from 40+ sources across blogs, YouTube, Bluesky, Hacker News, Reddit, arXiv, and GitHub.
+A personal news intelligence tool that turns any topic into a curated daily digest. Point it at RSS feeds, YouTube channels, Hacker News, Reddit, arXiv, GitHub, Bluesky — and it fetches, deduplicates, summarizes, and categorizes everything into one feed.
 
-Built for staying on top of AI and agentic coding news without drowning in tabs.
+Track AI research, web development, game design, finance, or anything else. You bring the sources, Signal does the rest.
 
-![Daily Digest — calendar-navigable feed with 45 items from RSS, arXiv, YouTube, and more](docs/screenshots/digest.webp)
+![Daily Digest — calendar-navigable feed with items from RSS, arXiv, YouTube, and more](docs/screenshots/digest.webp)
 
 ## What It Does
 
-- **Fetches** from RSS, Hacker News, Reddit, arXiv, GitHub Releases, YouTube, Bluesky, and Twitter (Nitter)
+- **Fetches** from RSS/Atom, Hacker News, Reddit, arXiv, GitHub Releases, YouTube, Bluesky, and Twitter (Nitter)
 - **Deduplicates** across sources using URL matching, source+ID matching, and fuzzy title similarity
-- **Summarizes** each item with GPT-4.1-nano (2-3 sentences + auto-categorization)
+- **Summarizes** each item with an LLM (2-3 sentences + auto-categorization into your custom categories)
 - **Presents** a calendar-navigable daily digest with filtering by category, source, and read/starred state
 - **Curates** with star + annotate workflow for items worth highlighting
-- **Generates** weekly markdown reviews from starred items for team briefings
-- **Discovers** new YouTube channels based on keyword search patterns
+- **Generates** weekly markdown reviews from starred items
+- **Discovers** new YouTube channels based on your keyword searches
 
 ## Quick Start
 
@@ -37,7 +37,7 @@ pnpm install
 pnpm run dev
 ```
 
-Open `http://localhost:3000`. Click **RUN NOW** in Settings to fetch your first batch.
+Open `http://localhost:3000`. Add your sources via the **Sources** page, then click **RUN NOW** in Settings to fetch your first batch.
 
 ## Tech Stack
 
@@ -67,7 +67,7 @@ signal/
 │       ├── components/           # Shared UI components
 │       └── lib/                  # API client, types, utils
 ├── docker/
-│   └── postgres/init.sql         # Schema + 40+ seeded sources
+│   └── postgres/init.sql         # Schema (no seeded sources — add your own)
 ├── docs/                         # Architecture, API, setup, pipeline, sources docs
 └── docker-compose.yml
 ```
@@ -94,7 +94,7 @@ Runs on a configurable cron schedule (default: 6 AM and 6 PM daily). Can be trig
 Fetch (parallel) → Deduplicate (3-layer) → Persist → Summarize (LLM) → Categorize → Discover
 ```
 
-Cost: ~$0.30/month for LLM summarization at 100 items/day.
+Cost: ~$0.30/month for LLM summarization at 100 items/day with GPT-4.1-nano.
 
 ## API
 
@@ -132,7 +132,7 @@ cd frontend && pnpm run build
 
 ## Screenshots
 
-**Sources** — manage 46 tracked sources across RSS, YouTube, Twitter, arXiv, Reddit, GitHub, and more. Each shows health status, last fetch time, and item count.
+**Sources** — manage tracked sources across RSS, YouTube, Twitter, arXiv, Reddit, GitHub, and more. Each shows health status, last fetch time, and item count.
 
 ![Sources page](docs/screenshots/sources.webp)
 

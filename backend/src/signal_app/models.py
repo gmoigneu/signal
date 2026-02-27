@@ -115,6 +115,7 @@ class PipelineStatus(BaseModel):
     is_running: bool
     last_run_at: str | None = None
     last_run_status: str | None = None
+    last_run_items_new: int | None = None
     next_run_at: str | None = None
 
 

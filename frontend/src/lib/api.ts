@@ -157,6 +157,7 @@ export interface PipelineStatus {
 	is_running: boolean;
 	last_run_at: string | null;
 	last_run_status: string | null;
+	last_run_items_new: number | null;
 	next_run_at: string | null;
 }
 

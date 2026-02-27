@@ -8,16 +8,19 @@ import {
 	Plus,
 	Star,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ItemCard from "../components/digest/ItemCard";
 import QuickAddModal from "../components/digest/QuickAddModal";
+import type { PipelineButtonState } from "../components/layout/Topbar";
 import Topbar from "../components/layout/Topbar";
 import {
 	getCategories,
 	getItemStats,
 	getItems,
+	getPipelineStatus,
 	type ItemStats,
 	type PaginatedItems,
+	triggerPipeline,
 } from "../lib/api";
 import type { Category } from "../lib/types";
 
@@ -51,6 +54,60 @@ function DigestPage() {
 	const [categories, setCats] = useState<Category[]>([]);
 	const [loading, setLoading] = useState(true);
 
+	// Pipeline state
+	const [pipelineState, setPipelineState] =
+		useState<PipelineButtonState>("idle");
+	const [pipelineItemsNew, setPipelineItemsNew] = useState(0);
+	const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+	const resetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const loadDataRef = useRef<() => void>(() => {});
+
+	const stopPolling = useCallback(() => {
+		if (pollRef.current) {
+			clearInterval(pollRef.current);
+			pollRef.current = null;
+		}
+	}, []);
+
+	const startPolling = useCallback(() => {
+		stopPolling();
+		pollRef.current = setInterval(async () => {
+			try {
+				const status = await getPipelineStatus();
+				if (!status.is_running) {
+					stopPolling();
+					setPipelineItemsNew(status.last_run_items_new ?? 0);
+					setPipelineState("completed");
+					resetRef.current = setTimeout(() => {
+						setPipelineState("idle");
+					}, 5000);
+					// Refresh digest data after pipeline completes
+					loadDataRef.current();
+				}
+			} catch (e) {
+				console.error("Failed to poll pipeline status:", e);
+			}
+		}, 2000);
+	}, [stopPolling]);
+
+	useEffect(() => {
+		return () => {
+			stopPolling();
+			if (resetRef.current) clearTimeout(resetRef.current);
+		};
+	}, [stopPolling]);
+
+	const handleRunPipeline = async () => {
+		setPipelineState("running");
+		try {
+			await triggerPipeline();
+			startPolling();
+		} catch (e) {
+			console.error("Failed to trigger pipeline:", e);
+			setPipelineState("idle");
+		}
+	};
+
 	const loadData = useCallback(async () => {
 		setLoading(true);
 		try {
@@ -75,6 +132,8 @@ function DigestPage() {
 		}
 	}, [currentDate, activeCategory, starredOnly, unreadOnly, page]);
 
+	loadDataRef.current = loadData;
+
 	useEffect(() => {
 		loadData();
 	}, [loadData]);
@@ -94,6 +153,9 @@ function DigestPage() {
 				title={`Daily Digest, ${formatDate(currentDate)}`}
 				showSearch
 				showPipeline
+				pipelineState={pipelineState}
+				pipelineItemsNew={pipelineItemsNew}
+				onRunPipeline={handleRunPipeline}
 			/>
 
 			<div className="flex-1 overflow-y-auto">

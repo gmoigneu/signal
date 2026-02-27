@@ -46,6 +46,7 @@ async def pipeline_status() -> PipelineStatus:
         is_running=_running,
         last_run_at=last["started_at"].isoformat() if last else None,
         last_run_status=last["status"] if last else None,
+        last_run_items_new=last["items_new"] if last else None,
         next_run_at=None,
     )
 

@@ -35,8 +35,10 @@ postgres_data/
 .coverage
 htmlcov/
 
-# UV
-uv.lock
+# UV (uv.lock intentionally tracked for reproducible builds)
 
 # Build artifacts
 *.tgz
+
+# Caddy (contains hashed credentials)
+Caddyfile

@@ -38,6 +38,8 @@ services:
       - "26001:3000"
     depends_on:
       - backend
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-https://signal.nls.io}
     restart: unless-stopped
 
 volumes:
